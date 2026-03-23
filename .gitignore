@@ -1,0 +1,33 @@
+# keep each top level section alphabetical
+# keep each item within the sections alphabetical
+
+# large files
+*.png
+*.gif
+
+# mac
+*.DS_Store
+
+# misc
+*logs*
+*runs*
+*tb_logs*
+*wandb*
+*wandb_logs*
+outputs/*
+
+# python
+*__pycache__
+*.egg-info
+*.hypothesis
+*.ipynb_checkpoints
+*.mypy_cache
+*.pyc
+
+#data
+bc_data/*
+ur10e_data/*
+
+# vim
+*.swp
+MUJOCO_LOG.TXT

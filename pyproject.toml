@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai4ce-gello-teleoperation"
+version = "0.0.1"
+readme = "README.md"
+description = "This is a AI4CE fork of the Gellow teleoperation software. Original work can be found at https://wuphilipp.github.io/gello_site/"
+authors = [
+    {name = "Irving Fang", email = "irving.fang@nyu.edu"},
+]
+requires-python = ">=3.10, <3.12"
+
+dependencies = [
+    "dynamixel-sdk",
+    "dm_control",
+    "Pillow",
+    "pygame",
+    "pyspacemouse",
+    "PyQt6",
+    "pyquaternion",
+    "pyrealsense2",
+    "pure-python-adb",
+    "quaternion",
+    "tyro",
+    "ur-rtde",
+    "zmq",
+    "xarm",
+    "xarm-python-sdk",
+    "numpy-quaternion",
+    "termcolor",
+    "tyro",
+    "opencv-python",
+    "matplotlib",
+    "natsort",
+    "mediapy",
+    "moviepy==1.0.3",
+    "torch",
+    "transforms3d",
+    "PyYAML",
+    "h5py",
+    "tensorflow>=2.19.0",
+    "tensorflow-datasets>=4.9.8",
+    "apache-beam>=2.64.0",
+    "mlcroissant>=1.0.17",
+    "rerun-sdk>=0.23.1",
+    "trimesh>=4.6.8",
+]
+
+[tool.ruff]
+line-length = 150
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["A", "B", "E", "F", "I", "RUF", "W"]
+ignore = ["F722"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+
+[tool.setuptools.packages.find]
+include = ["gello*", "experiments*", "third_party*"]
+
+[tool.uv.sources]
+dynamixel-sdk = { path = "./third_party/DynamixelSDK/python", editable = true }
