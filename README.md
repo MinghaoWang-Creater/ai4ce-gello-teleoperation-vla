@@ -188,3 +188,48 @@ This project builds on top of or utilizes the following third party dependencies
  * [brentyi/tyro](https://github.com/brentyi/tyro): Argument parsing and configuration
  * [ZMQ](https://zeromq.org/): Enables easy create of node like processes in python.
 # ai4ce-gello-teleoperation-vla
+
+
+使用mujoco仿真采集数据：
+ ‘’‘
+ python experiments/launch_nodes.py --robot sim_ur_cube
+ python experiments/run_env.py --agent=gello --use_save_interface
+ ‘’‘
+ → 用 gello 手柄控制机械臂，键盘操作：
+
+S — 开始记录一个 episode
+Q — 停止记录，保存到 ./bc_data/pick_cube/
+Ctrl+C — 退出
+
+显示相机视角：
+实时显示 OpenCV 窗口（查看 offscreen 渲染画面）
+新开一个终端，运行以下脚本：
+cd /home/alan/ai4ce-gello-teleoperation-vla
+python -c "
+import pickle, zmq, cv2, numpy as np
+
+ctx = zmq.Context()
+sock = ctx.socket(zmq.REQ)
+sock.connect('tcp://127.0.0.1:6001')
+
+while True:
+    sock.send(pickle.dumps({'method': 'get_observations', 'args': {}}))
+    obs = pickle.loads(sock.recv())
+    base = obs.get('base_rgb')
+    wrist = obs.get('wrist_rgb')
+    if base is not None:
+        cv2.imshow('base_cam', cv2.cvtColor(base, cv2.COLOR_RGB2BGR))
+    if wrist is not None and wrist.any():
+        cv2.imshow('wrist_cam', cv2.cvtColor(wrist, cv2.COLOR_RGB2BGR))
+    if cv2.waitKey(30) == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+sock.close()
+"
+
+（可选）终端 3 — 采集完后转换为 zarr 格式
+
+
+python gello/data_utils/gello_diffusion.py
+→ 生成 ./bc_data/pick_cube.zarr，可直接用于 diffusion policy 训练
