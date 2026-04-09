@@ -233,3 +233,35 @@ sock.close()
 
 python gello/data_utils/gello_diffusion.py
 → 生成 ./bc_data/pick_cube.zarr，可直接用于 diffusion policy 训练
+
+录制数据结构：
+joint_positions	(7,) float	当前 6 臂关节角 + 1 夹爪角（rad）
+joint_velocities	(7,) float	关节速度
+ee_pos_quat	(7,) float	末端位置 xyz + 四元数 wxyz
+gripper_position	scalar	夹爪开合量
+cube_pos	(3,) float	立方体世界坐标 xyz
+cube_quat	(4,) float	立方体姿态四元数
+goal_pos	(3,) float	放置区中心坐标（固定值）
+base_rgb	(480,640,3) uint8	基础相机 RGB 图像
+base_depth	(480,640) float32	深度图（米）
+wrist_rgb	(480,640,3) uint8	腕部相机 RGB 图像
+wrist_depth	(480,640) float32	腕部深度图
+control	(7,) float	agent 发出的动作指令（6 臂 + 1 夹爪）
+
+检查数据内容：
+python -c "
+import pickle, glob, numpy as np
+from pathlib import Path
+# 找最新一条 episode 的第一帧
+pkls = sorted(Path('./bc_data/none').rglob('*.pkl'))
+print(f'共 {len(pkls)} 帧')
+
+with open(pkls[0], 'rb') as f:
+    frame = pickle.load(f)
+
+for k, v in frame.items():
+    if isinstance(v, np.ndarray):
+        print(f'  {k}: shape={v.shape}, dtype={v.dtype}')
+    else:
+        print(f'  {k}: {v}')
+"
