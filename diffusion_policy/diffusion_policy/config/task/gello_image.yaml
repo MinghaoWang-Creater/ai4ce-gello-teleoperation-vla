@@ -1,0 +1,29 @@
+name: gello_image
+
+image_shape: &image_shape [3, 180, 320]
+shape_meta: &shape_meta
+  # acceptable types: rgb, low_dim
+  obs:
+    base_img:
+      shape: *image_shape
+      type: rgb
+    wrist_img:
+      shape: *image_shape
+      type: rgb
+    state:
+      shape: [14]
+      type: low_dim
+  action:
+    shape: [7]
+
+env_runner: null
+
+dataset:
+  _target_: diffusion_policy.dataset.gello_image_dataset.GelloImageDataset
+  zarr_path: ???
+  horizon: ${horizon}
+  pad_before: ${eval:'${n_obs_steps}-1'}
+  pad_after: ${eval:'${n_action_steps}-1'}
+  seed: 42
+  val_ratio: 0.1
+  max_train_episodes: null
