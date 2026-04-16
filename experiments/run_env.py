@@ -39,7 +39,8 @@ class Args:
     gello_port: Optional[str] = None
     mock: bool = False
     use_save_interface: bool = False
-    data_dir: str = "./bc_data"
+    # data_dir: str = "./bc_data"
+    data_dir: str = "/media/alan/Ubuntu_SSD/bc_data"
     bimanual: bool = False
     verbose: bool = False
     use_visualizer: bool = False
@@ -153,7 +154,7 @@ def main(args):
     obs = env.get_obs()
     joints = obs["joint_positions"]
 
-    abs_deltas = np.abs(start_pos - joints)
+    abs_deltas = np.abs(((start_pos - joints) + np.pi) % (2 * np.pi) - np.pi)
     id_max_joint_delta = np.argmax(abs_deltas)
 
     max_joint_delta = 0.8
@@ -182,20 +183,26 @@ def main(args):
         obs = env.get_obs()
         command_joints = agent.act(obs)
         current_joints = obs["joint_positions"]
-        delta = command_joints - current_joints
-        max_joint_delta = np.abs(delta).max()
+        # 只对 arm joints（前 n-1 个）做 delta 限幅；夹爪直接取 GELLO 归一化值
+        arm_delta = command_joints[:-1] - current_joints[:-1]
+        max_joint_delta = np.abs(arm_delta).max()
         if max_joint_delta > max_delta:
-            delta = delta / max_joint_delta * max_delta
-        env.step(current_joints + delta)
+            arm_delta = arm_delta / max_joint_delta * max_delta
+        cmd = current_joints.copy()
+        cmd[:-1] = current_joints[:-1] + arm_delta
+        cmd[-1] = command_joints[-1]   # 夹爪直接用 GELLO 归一化值 [0,1]
+        env.step(cmd)
 
     obs = env.get_obs()
     joints = obs["joint_positions"]
     action = agent.act(obs)
-    if (action - joints > 0.8).any():
+    # 只检查 arm joints（前 n-1 个），夹爪量纲不同（[0,1] vs rad）不参与检查
+    arm_deltas = np.abs(((action[:-1] - joints[:-1]) + np.pi) % (2 * np.pi) - np.pi)
+    if arm_deltas.max() > 0.8:
         print("Action is too big")
 
         # print which joints are too big
-        joint_index = np.where(action - joints > 0.8)
+        joint_index = np.where(arm_deltas > 0.8)
         for j in joint_index:
             print(
                 f"Joint [{j}], leader: {action[j]}, follower: {joints[j]}, diff: {action[j] - joints[j]}"
@@ -206,6 +213,7 @@ def main(args):
         from gello.data_utils.keyboard_interface import KBReset
 
         kb_interface = KBReset()
+        _was_saving = False
 
     if args.use_visualizer:
         import rerun as rr
@@ -240,6 +248,7 @@ def main(args):
         if args.use_save_interface:
             state = kb_interface.update()
             if state == "start":
+                _was_saving = True
                 dt_time = datetime.datetime.now()
                 save_path = (
                     Path(args.data_dir).expanduser()
@@ -252,6 +261,10 @@ def main(args):
                 assert save_path is not None, "something went wrong"
                 save_frame(save_path, dt, obs, action)
             elif state == "normal":
+                if _was_saving and hasattr(robot_client, "reset_episode"):
+                    robot_client.reset_episode()
+                    print("Episode reset: cube randomized")
+                _was_saving = False
                 save_path = None
             else:
                 raise ValueError(f"Invalid state {state}")

@@ -9,8 +9,8 @@ from natsort import natsorted
 from tqdm import tqdm
 
 KEY_PREFIX = "ai4ce_gello"
-GELLO_OUTPUT_PATH = "./bc_data/pick_cube" \
-""
+# GELLO_OUTPUT_PATH = "./bc_data/gello"
+GELLO_OUTPUT_PATH = "/media/alan/Ubuntu_SSD/bc_data/gello"
 
 IMAGE_RESOLUTION = (180, 320)  # H, W
 DOF = 6  # Degrees of Freedom
@@ -23,16 +23,15 @@ WRIST_DEPTH_KEY = "wrist_depth"
 
 
 def resize(image: np.ndarray, size: tuple[int, int] = IMAGE_RESOLUTION) -> np.ndarray:
-    """Resize the image to the specified size and convert to (C, H, W) format."""
+    """Resize the image to the specified size, keeping (H, W, C) channel-last format."""
     image = cv2.resize(image, size[::-1], interpolation=cv2.INTER_LINEAR)  # opencv uses (W, H) for resize.
     if image.ndim == 2:
         image = np.expand_dims(image, axis=-1)  # Add channel dimension if grayscale
-    # Convert from (H, W, C) to (C, H, W)
-    image = np.transpose(image, (2, 0, 1))
-    return image
+    return image  # Keep (H, W, C) for diffusion_policy ReplayBuffer compatibility
 
 
-def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
+# def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
+def convert_to_zarr_format(output_path: str = "/media/alan/Ubuntu_SSD/bc_data/pick_cube.zarr"):
     """
     Convert the existing pickle dataset to zarr format for ReplayBuffer.
 
@@ -112,12 +111,19 @@ def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
     # Create datasets with compression using zarr 2.x syntax
     compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.SHUFFLE)
     
-    # Image data: (total_steps, C, H, W)
-    img_array = data_group.create_dataset(
-        'img',
-        shape=(total_steps, 3, *IMAGE_RESOLUTION),
+    # Image data: (total_steps, H, W, C) — channel-last for diffusion_policy compatibility
+    base_img_array = data_group.create_dataset(
+        'base_img',
+        shape=(total_steps, *IMAGE_RESOLUTION, 3),
         dtype=np.uint8,
-        chunks=(chunk_size, 3, IMAGE_RESOLUTION[0], IMAGE_RESOLUTION[1]),
+        chunks=(chunk_size, *IMAGE_RESOLUTION, 3),
+        compressor=compressor
+    )
+    wrist_img_array = data_group.create_dataset(
+        'wrist_img',
+        shape=(total_steps, *IMAGE_RESOLUTION, 3),
+        dtype=np.uint8,
+        chunks=(chunk_size, *IMAGE_RESOLUTION, 3),
         compressor=compressor
     )
     
@@ -179,9 +185,11 @@ def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
         # Process each step in the episode
         for step_idx, frame in enumerate(episode_data):
             try:
-                # Process image
-                image = resize(frame.get(BASE_IMAGE_KEY, np.zeros((*IMAGE_RESOLUTION, 3), dtype=np.uint8)))
-                img_array[current_step] = image
+                # Process images (both cameras)
+                base_img = resize(frame.get(BASE_IMAGE_KEY, np.zeros((*IMAGE_RESOLUTION, 3), dtype=np.uint8)))
+                wrist_img = resize(frame.get(WRIST_IMAGE_KEY, np.zeros((*IMAGE_RESOLUTION, 3), dtype=np.uint8)))
+                base_img_array[current_step] = base_img
+                wrist_img_array[current_step] = wrist_img
                 
                 # Process state (concatenate joint_position + cartesian_position + gripper_position)
                 joint_pos = frame.get("joint_positions", np.zeros(DOF))[:DOF]
@@ -224,7 +232,7 @@ def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
     root.attrs['num_episodes'] = len(episode_lengths)
     root.attrs['state_dim'] = state_dim
     root.attrs['action_dim'] = action_dim
-    root.attrs['image_shape'] = (3,) + IMAGE_RESOLUTION  # (C, H, W)
+    root.attrs['image_shape'] = IMAGE_RESOLUTION + (3,)  # (H, W, C)
     root.attrs['dataset_version'] = '1.0.0'
     
     print("\nConversion completed successfully!")
@@ -232,9 +240,10 @@ def convert_to_zarr_format(output_path: str = "./bc_data/pick_cube.zarr"):
     print(f"Total steps processed: {current_step}")
     print(f"Total episodes: {len(episode_lengths)}")
     print("Dataset structure:")
-    print(f"  - data/img: {img_array.shape} ({img_array.dtype})")
-    print(f"  - data/state: {state_array.shape} ({state_array.dtype})")
-    print(f"  - data/action: {action_array.shape} ({action_array.dtype})")
+    print(f"  - data/base_img:  {base_img_array.shape} ({base_img_array.dtype})")
+    print(f"  - data/wrist_img: {wrist_img_array.shape} ({wrist_img_array.dtype})")
+    print(f"  - data/state:     {state_array.shape} ({state_array.dtype})")
+    print(f"  - data/action:    {action_array.shape} ({action_array.dtype})")
     print(f"  - meta/episode_ends: {episode_ends_array.shape} ({episode_ends_array.dtype})")
     
     return output_path_obj

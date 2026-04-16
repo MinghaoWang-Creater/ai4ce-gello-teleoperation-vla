@@ -265,3 +265,33 @@ for k, v in frame.items():
     else:
         print(f'  {k}: {v}')
 "
+
+
+转换数据：
+cd /home/alan/ai4ce-gello-teleoperation-vla
+python gello/data_utils/gello_diffusion.py
+
+转换完成后验证：
+python -c "import zarr; z=zarr.open('bc_data/gello.zarr'); print(z['data/base_img'].shape, z['data/wrist_img'].shape)"
+
+安装 diffusion_policy 并启动训练：
+cd /home/alan/ai4ce-gello-teleoperation-vla/diffusion_policy
+pip install -e .
+
+conda activate robodiff
+python train.py --config-name=train_gello_diffusion_unet_hybrid
+
+# 查看最新一条 episode 的第 0 帧（默认）
+python inspect_pkl.py
+
+# 查看特定 episode 目录
+python inspect_pkl.py bc_data/gello/0415_123456/
+
+# 查看特定帧（例如第 20 帧）
+python inspect_pkl.py bc_data/gello/0415_123456/ --frame 20
+
+# 播放整条 episode 的所有帧（slideshow）
+python inspect_pkl.py bc_data/gello/0415_123456/ --all
+
+# 调整播放速度（默认 10fps）
+python inspect_pkl.py bc_data/gello/0415_123456/ --all --fps 5

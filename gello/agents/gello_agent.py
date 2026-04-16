@@ -101,7 +101,7 @@ PORT_CONFIG_MAP: Dict[str, DynamixelRobotConfig] = {
         joint_ids=(1, 2, 3, 4, 5, 6),
         joint_offsets=[2*np.pi/2, 4*np.pi/2, 3*np.pi/2, 5*np.pi/2, 4*np.pi/2, 0*np.pi/2],  # modify this line
         joint_signs=(1, 1, -1, 1, 1, 1),
-        gripper_config=(7,21, -20), # modify this line
+        gripper_config=(7, 381, 326),  # open≈326°(5.70rad), close≈381°(6.65rad)
     )
 }
 
@@ -125,7 +125,12 @@ class GelloAgent(Agent):
             self._robot = config.make_robot(port=port, start_joints=start_joints)
 
     def act(self, obs: Dict[str, np.ndarray]) -> np.ndarray:
-        return self._robot.get_joint_state()
+        raw = self._robot.get_joint_state()
+        if "joint_positions" in obs:
+            follower = obs["joint_positions"]
+            # 将 GELLO 输出对齐到 follower 当前位置的最近等价角，消除 2π 偏差
+            raw = follower + ((raw - follower + np.pi) % (2 * np.pi) - np.pi)
+        return raw
         dyna_joints = self._robot.get_joint_state()
         # current_q = dyna_joints[:-1]  # last one dim is the gripper
         current_gripper = dyna_joints[-1]  # last one dim is the gripper

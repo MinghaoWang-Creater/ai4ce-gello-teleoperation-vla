@@ -11,14 +11,14 @@ from dm_control import mjcf
 
 from gello.robots.sim_robot import ZMQRobotServer, ZMQServerThread, attach_hand_to_arm
 
-# 放置区中心（固定）
-GOAL_POS = np.array([0.35, 0.25, 0.0])
+# 放置区中心（固定）—— 第四象限 (x>0, y<0)
+GOAL_POS = np.array([0.25, -0.55, 0.0])
 # 放置区方框半边长（米）
 GOAL_HALF = 0.07
 
-# 立方体随机初始化范围：x ∈ [center_x ± rx], y ∈ [center_y ± ry]
-CUBE_CENTER = np.array([0.35, 0.0])
-CUBE_RANGE  = np.array([0.08, 0.08])
+# 立方体随机初始化范围 —— 第三象限 (x<0, y<0)
+CUBE_CENTER = np.array([-0.20, -0.55])
+CUBE_RANGE  = np.array([0.05, 0.05])
 
 
 def _add_goal_zone(worldbody, cx: float, cy: float, half: float = GOAL_HALF):
@@ -51,12 +51,12 @@ def build_scene_with_cube(
 ):
     arena = mjcf.RootElement()
 
-    # 单盏聚光灯，照射工作台（方块区 + 放置区之间）
+    # 单盏聚光灯，居中照射工作台（三、四象限工作区中心）
     arena.worldbody.add(
         "light",
         name="work_light",
-        pos=[0.35, 0.12, 1.4],
-        dir=[0.0, -0.1, -1.0],
+        pos=[0.05, -0.55, 1.4],
+        dir=[0.0, 0.0, -1.0],
         diffuse=[0.55, 0.55, 0.55],
         specular=[0.1, 0.1, 0.1],
         castshadow=True,
@@ -86,8 +86,8 @@ def build_scene_with_cube(
         wrist_body.add(
             "camera",
             name="wrist_cam",
-            pos=[0.0, 0.0, -0.08],
-            euler=[0, 180, 0],
+            pos=[0.0, -0.06, 0.06],
+            euler=[90, 0, 0],
         )
 
     if gripper_xml_path is not None:
@@ -100,8 +100,8 @@ def build_scene_with_cube(
     arena.worldbody.add(
         "camera",
         name="base_cam",
-        pos=[1.2, 0.0, 1.0],
-        xyaxes=[0, 1, 0, -0.6, 0, 0.8],
+        pos=[0.05, -1.3, 1.1],
+        xyaxes=[1, 0, 0, 0, 0.72, 0.69],
     )
 
     # 立方体（自由体，6 DOF）
@@ -262,6 +262,7 @@ class MujocoGraspServer:
 
     def command_joint_state(self, joint_state: np.ndarray) -> None:
         assert len(joint_state) == self._num_joints
+
         if self._has_gripper:
             _js = joint_state.copy()
             _js[-1] = _js[-1] * 255

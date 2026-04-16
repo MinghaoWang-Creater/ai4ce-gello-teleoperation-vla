@@ -134,7 +134,7 @@ def main(args: Args):
     obs = env.get_obs()
     joints = obs["joint_positions"]
 
-    abs_deltas = np.abs(start_pos - joints)
+    abs_deltas = np.abs(((start_pos - joints) + np.pi) % (2 * np.pi) - np.pi)
     id_max_joint_delta = np.argmax(abs_deltas)
 
     max_joint_delta = 0.8

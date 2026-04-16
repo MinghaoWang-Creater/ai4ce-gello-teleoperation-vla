@@ -123,3 +123,11 @@ class ZMQClientRobot(Robot):
         self._socket.send(send_message)
         result = pickle.loads(self._socket.recv())
         return result
+
+    def reset_episode(self) -> str:
+        """Request the server to reset the episode (e.g. randomize cube position)."""
+        request = {"method": "reset_episode"}
+        send_message = pickle.dumps(request)
+        self._socket.send(send_message)
+        result = pickle.loads(self._socket.recv())
+        return result
