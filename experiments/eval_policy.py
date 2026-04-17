@@ -28,8 +28,10 @@ import mujoco
 import numpy as np
 import torch
 
-# Make project root importable
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Make project root and diffusion_policy importable
+_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(_ROOT))
+sys.path.insert(0, str(_ROOT / "diffusion_policy"))
 
 from gello.robots.sim_robot_grasp import build_scene_with_cube, CUBE_CENTER, CUBE_RANGE
 
