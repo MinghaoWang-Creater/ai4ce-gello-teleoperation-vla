@@ -88,18 +88,7 @@ def build_mujoco_model(robot_xml: str, gripper_xml: str):
     return model, data
 
 
-# Default initial arm joint angles (overridden by --zarr_path at runtime)
-RESET_JOINTS = np.deg2rad([0, 0, -45, 0, 0, 0])
-
-
-def load_reset_joints_from_zarr(zarr_path: str) -> np.ndarray:
-    """Read arm joint angles from the first frame of the first episode in the zarr dataset."""
-    import zarr as _zarr
-    z = _zarr.open(zarr_path, mode="r")
-    # state layout: joint_pos(6) + ee_pos_quat(7) + gripper(1)
-    joints = np.array(z["data/state"][0][:6], dtype=np.float64)
-    print(f"[reset] loaded initial joints from {zarr_path}: {np.round(joints, 4)}")
-    return joints
+RESET_JOINTS = np.array([1.4901, -1.4725, 1.8906, -1.7993, -1.6091, 0.0196])
 
 
 def reset_episode(model, data, cube_center, cube_range, cube_size=0.025):
@@ -277,13 +266,7 @@ def main():
     parser.add_argument("--robot_xml",   default="./third_party/mujoco_menagerie/universal_robots_ur5e/ur5e.xml")
     parser.add_argument("--gripper_xml", default="./third_party/mujoco_menagerie/robotiq_2f85/2f85.xml")
     parser.add_argument("--fps",         type=int, default=30)
-    parser.add_argument("--zarr_path",   default=None,
-                        help="zarr 数据集路径，用于从第一帧读取机械臂初始姿态")
     args = parser.parse_args()
-
-    global RESET_JOINTS
-    if args.zarr_path is not None:
-        RESET_JOINTS = load_reset_joints_from_zarr(args.zarr_path)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
