@@ -21,7 +21,8 @@ obs_as_global_cond: True
 task:
   dataset:
     # zarr_path: /home/alan/ai4ce-gello-teleoperation-vla/bc_data/pick_cube.zarr
-    zarr_path: /media/alan/Ubuntu_SSD/bc_data/pick_cube.zarr
+    # zarr_path: /media/alan/Ubuntu_SSD/bc_data/pick_cube.zarr
+    zarr_path: /dev/shm/dataset/pick_cube.zarr
 
 env_runner: null
 
@@ -68,7 +69,7 @@ dataloader:
 
 val_dataloader:
   batch_size: 8
-  num_workers: 10
+  num_workers: 8
   shuffle: False
   pin_memory: True
   persistent_workers: True

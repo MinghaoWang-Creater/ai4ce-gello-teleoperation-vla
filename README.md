@@ -267,14 +267,14 @@ for k, v in frame.items():
 "
 
 
-转换数据：
+# 转换数据：
 cd /home/alan/ai4ce-gello-teleoperation-vla
 python gello/data_utils/gello_diffusion.py
 
-转换完成后验证：
+# 转换完成后验证：
 python -c "import zarr; z=zarr.open('bc_data/gello.zarr'); print(z['data/base_img'].shape, z['data/wrist_img'].shape)"
 
-安装 diffusion_policy 并启动训练：
+# 安装 diffusion_policy 并启动训练：
 cd /home/alan/ai4ce-gello-teleoperation-vla/diffusion_policy
 pip install -e .
 
