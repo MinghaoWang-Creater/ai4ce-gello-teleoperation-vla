@@ -20,6 +20,9 @@ import xml.etree.ElementTree as ET
 from collections import deque
 from pathlib import Path
 
+# Must be set before mujoco is imported — selects EGL for headless offscreen rendering
+os.environ.setdefault("MUJOCO_GL", "egl")
+
 import cv2
 import mujoco
 import numpy as np
