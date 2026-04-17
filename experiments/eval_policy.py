@@ -118,15 +118,36 @@ IMG_H, IMG_W = 180, 320
 N_OBS_STEPS = 2
 
 
+_RENDER_WARNED = set()
+
 def render_camera(renderer, data, camera_name: str) -> np.ndarray:
     try:
         renderer.update_scene(data, camera=camera_name)
-        return renderer.render().copy()
-    except Exception:
+        img = renderer.render().copy()
+        return img
+    except Exception as e:
+        if camera_name not in _RENDER_WARNED:
+            print(f"[WARN] render_camera '{camera_name}' failed: {e}")
+            _RENDER_WARNED.add(camera_name)
         return np.zeros((480, 640, 3), dtype=np.uint8)
 
 
-def get_obs(model, data, renderer) -> dict:
+# Find site_id once at startup to mirror training's sim_robot_grasp.py behaviour.
+# Training used mj_name2id(model, 6, "attachment_site") which returns -1 after
+# dm_control namespacing (actual name is "ur5e/attachment_site"), so it fell back
+# to site_xpos[-1].  We replicate that exactly.
+def _find_ee_site_id(model) -> int:
+    for name in ("attachment_site", "ur5e/attachment_site"):
+        sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, name)
+        if sid >= 0:
+            print(f"[info] ee site found: '{name}' id={sid}")
+            return sid
+    # Fallback: same as training (mj_name2id returned -1, Python used xpos[-1])
+    print("[info] ee site not found by name, using site_xpos[-1] (mirrors training)")
+    return -1
+
+
+def get_obs(model, data, renderer, ee_site_id: int) -> dict:
     base_raw   = render_camera(renderer, data, "base_cam")
     wrist_raw  = render_camera(renderer, data, "ur5e/wrist_cam")
     base_img   = cv2.resize(base_raw,  (IMG_W, IMG_H))   # (H, W, 3)
@@ -134,15 +155,11 @@ def get_obs(model, data, renderer) -> dict:
 
     joint_positions = data.qpos[:6].copy()
 
-    site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, "attachment_site")
-    if site_id >= 0:
-        ee_pos  = data.site_xpos[site_id].copy()
-        ee_mat  = data.site_xmat[site_id].copy()
-        ee_quat = np.zeros(4)
-        mujoco.mju_mat2Quat(ee_quat, ee_mat)
-    else:
-        ee_pos  = np.zeros(3)
-        ee_quat = np.array([1.0, 0.0, 0.0, 0.0])
+    # Mirror training: use site_xpos[ee_site_id] where -1 means last site
+    ee_pos  = data.site_xpos[ee_site_id].copy()
+    ee_mat  = data.site_xmat[ee_site_id].copy()
+    ee_quat = np.zeros(4)
+    mujoco.mju_mat2Quat(ee_quat, ee_mat)
 
     gripper_pos = data.qpos[6:7].copy()   # right_driver_joint
     state = np.concatenate([joint_positions, ee_pos, ee_quat, gripper_pos])  # (14,)
@@ -215,7 +232,7 @@ def write_frame(writer, base_raw: np.ndarray, wrist_raw: np.ndarray):
 # Main eval loop
 # ──────────────────────────────────────────────────────────────
 
-def run_episode(model, data, renderer, policy, device, max_steps: int, writer):
+def run_episode(model, data, renderer, ee_site_id, policy, device, max_steps: int, writer):
     n_obs_steps    = policy.n_obs_steps
     n_action_steps = policy.n_action_steps
 
@@ -228,7 +245,7 @@ def run_episode(model, data, renderer, policy, device, max_steps: int, writer):
         data.ctrl[:6] = RESET_JOINTS
         mujoco.mj_step(model, data)
     for _ in range(n_obs_steps):
-        obs_history.append(get_obs(model, data, renderer))
+        obs_history.append(get_obs(model, data, renderer, ee_site_id))
         mujoco.mj_step(model, data)
 
     for step in range(max_steps):
@@ -244,7 +261,7 @@ def run_episode(model, data, renderer, policy, device, max_steps: int, writer):
         data.ctrl[6]  = float(action[6]) * 255.0   # gripper: [0,1] → [0,255]
         mujoco.mj_step(model, data)
 
-        obs = get_obs(model, data, renderer)
+        obs = get_obs(model, data, renderer, ee_site_id)
         obs_history.append(obs)
 
         if writer is not None:
@@ -280,6 +297,7 @@ def main():
 
     model, data = build_mujoco_model(str(robot_xml), str(gripper_xml))
     renderer = mujoco.Renderer(model, height=480, width=640)
+    ee_site_id = _find_ee_site_id(model)
 
     # Find cube freejoint qpos address for reset
     cube_jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "cube_joint")
@@ -295,7 +313,7 @@ def main():
         video_path = str(output_dir / f"episode_{ep:03d}.mp4")
         writer = make_video_writer(video_path, fps=args.fps)
 
-        steps = run_episode(model, data, renderer, policy, device, args.max_steps, writer)
+        steps = run_episode(model, data, renderer, ee_site_id, policy, device, args.max_steps, writer)
 
         writer.release()
         print(f"  Saved {steps} frames → {video_path}")
