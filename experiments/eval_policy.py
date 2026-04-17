@@ -46,7 +46,11 @@ def _patch_xml(xml_path: str) -> str:
     if "implicitfast" not in content:
         return xml_path
     content = content.replace("implicitfast", "implicit")
-    tmp = tempfile.NamedTemporaryFile(suffix=".xml", delete=False, mode="w")
+    # Must write to same directory as original so relative asset paths resolve correctly
+    original_dir = os.path.dirname(os.path.abspath(xml_path))
+    tmp = tempfile.NamedTemporaryFile(
+        suffix=".xml", delete=False, mode="w", dir=original_dir
+    )
     tmp.write(content)
     tmp.close()
     print(f"[patch] replaced 'implicitfast' → 'implicit' in {xml_path}")
