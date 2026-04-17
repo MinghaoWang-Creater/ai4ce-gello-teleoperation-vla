@@ -16,6 +16,7 @@ import argparse
 import os
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import deque
 from pathlib import Path
 
@@ -67,6 +68,16 @@ def build_mujoco_model(robot_xml: str, gripper_xml: str):
         if asset.tag == "mesh"
     }
     xml_string = arena.to_xml_string()
+
+    # Remove keyframes: after scene composition the qpos size changes (cube freejoint
+    # adds 7 dims), so any keyframe from the original robot XML becomes invalid.
+    root_elem = ET.fromstring(xml_string)
+    for parent in root_elem.iter():
+        for child in list(parent):
+            if child.tag == "keyframe":
+                parent.remove(child)
+    xml_string = ET.tostring(root_elem, encoding="unicode")
+
     model = mujoco.MjModel.from_xml_string(xml_string, assets)
     data = mujoco.MjData(model)
     return model, data
