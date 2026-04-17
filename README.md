@@ -279,7 +279,15 @@ cd /home/alan/ai4ce-gello-teleoperation-vla/diffusion_policy
 pip install -e .
 
 conda activate robodiff
-python train.py --config-name=train_gello_diffusion_unet_hybrid
+# 设置wandb api key
+export WANDB_API_KEY=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
+
+# 将数据集存入内存
+cp -r pick_cube.zarr /dev/shm/dataset
+
+# 训练指令 batch_size=8 num_workers=10
+python train.py --config-name=train_gello_diffusion_unet_hybrid training.device=cuda:0 dataloader.batch_size=8 dataloader.num_workers=10 dataloader.pin_memory=True
+
 
 # 查看最新一条 episode 的第 0 帧（默认）
 python inspect_pkl.py
