@@ -88,8 +88,18 @@ def build_mujoco_model(robot_xml: str, gripper_xml: str):
     return model, data
 
 
+# Initial arm joint angles used during data collection (must match run_env.py reset_joints)
+RESET_JOINTS = np.deg2rad([0, 0, -45, 0, 0, 0])
+
+
 def reset_episode(model, data, cube_center, cube_range, cube_size=0.025):
     mujoco.mj_resetData(model, data)
+
+    # Set arm to the same initial pose used during data collection so that the
+    # policy receives in-distribution observations from the very first step.
+    data.qpos[:6] = RESET_JOINTS
+    data.ctrl[:6] = RESET_JOINTS   # position actuators: hold the pose
+
     # Randomize cube position
     lo = cube_center - cube_range
     hi = cube_center + cube_range
@@ -213,10 +223,14 @@ def run_episode(model, data, renderer, policy, device, max_steps: int, writer):
     obs_history  = deque(maxlen=n_obs_steps)
     action_queue = deque()
 
-    # Warm-up: fill obs history with first frame
-    first_obs = get_obs(model, data, renderer)
+    # Warm-up: step the physics a few times at reset pose so the arm settles,
+    # then fill obs history with distinct frames instead of repeating one frame.
+    for _ in range(10):
+        data.ctrl[:6] = RESET_JOINTS
+        mujoco.mj_step(model, data)
     for _ in range(n_obs_steps):
-        obs_history.append(first_obs)
+        obs_history.append(get_obs(model, data, renderer))
+        mujoco.mj_step(model, data)
 
     for step in range(max_steps):
         if len(action_queue) == 0:
