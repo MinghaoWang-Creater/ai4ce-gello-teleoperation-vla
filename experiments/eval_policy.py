@@ -15,6 +15,7 @@ Usage (on server):
 import argparse
 import os
 import sys
+import tempfile
 from collections import deque
 from pathlib import Path
 
@@ -33,7 +34,28 @@ from gello.robots.sim_robot_grasp import build_scene_with_cube, CUBE_CENTER, CUB
 # Scene / model helpers
 # ──────────────────────────────────────────────────────────────
 
+def _patch_xml(xml_path: str) -> str:
+    """Return a path to an XML with legacy-incompatible options replaced.
+
+    Older dm_control does not recognise integrator='implicitfast' — replace
+    with 'implicit' which is functionally similar and universally supported.
+    Returns the original path if no patching is needed.
+    """
+    with open(xml_path, "r") as f:
+        content = f.read()
+    if "implicitfast" not in content:
+        return xml_path
+    content = content.replace("implicitfast", "implicit")
+    tmp = tempfile.NamedTemporaryFile(suffix=".xml", delete=False, mode="w")
+    tmp.write(content)
+    tmp.close()
+    print(f"[patch] replaced 'implicitfast' → 'implicit' in {xml_path}")
+    return tmp.name
+
+
 def build_mujoco_model(robot_xml: str, gripper_xml: str):
+    robot_xml  = _patch_xml(robot_xml)
+    gripper_xml = _patch_xml(gripper_xml)
     arena = build_scene_with_cube(robot_xml, gripper_xml)
     assets = {
         asset.file.get_vfs_filename(): asset.file.contents
