@@ -278,7 +278,7 @@ def main():
     parser.add_argument("--ckpt",        required=True,  help=".ckpt 文件路径")
     parser.add_argument("--output",      default="eval_videos", help="输出目录")
     parser.add_argument("--episodes",    type=int, default=5,   help="评估 episode 数")
-    parser.add_argument("--max_steps",   type=int, default=300, help="每 episode 最大步数")
+    parser.add_argument("--max_steps",   type=int, default=1500, help="每 episode 最大步数")
     parser.add_argument("--device",      default="cuda:0")
     parser.add_argument("--robot_xml",   default="./third_party/mujoco_menagerie/universal_robots_ur5e/ur5e.xml")
     parser.add_argument("--gripper_xml", default="./third_party/mujoco_menagerie/robotiq_2f85/2f85.xml")
